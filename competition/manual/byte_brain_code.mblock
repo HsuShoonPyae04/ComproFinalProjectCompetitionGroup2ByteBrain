@@ -1,0 +1,155 @@
+
+import cyberpi
+import mbot2
+import gamepad
+import time
+
+MAX_POWER = 100
+DEADZONE = 15
+
+# Servo starting positions
+angle_s2 = 130
+angle_s3 = 90
+
+# -----------------------------
+# START ROBOT
+# -----------------------------
+
+cyberpi.mbot2.servo_set(angle_s2, "S2")
+cyberpi.mbot2.servo_set(angle_s3, "S3")
+
+cyberpi.console.println("Robot Ready!")
+
+# -----------------------------
+# MAIN LOOP
+# -----------------------------
+
+while True:
+
+    # Read RIGHT joystick
+    rx = gamepad.get_joystick('Rx')
+    ry = gamepad.get_joystick('Ry')
+
+    # Joystick mapping
+    # Forward  = Ry positive
+    # Backward = Ry negative
+    # Right    = Rx positive
+    # Left     = Rx negative
+
+    forward = ry
+    turn = rx
+
+    # Calculate wheel movement
+    left_motor = forward + turn
+    right_motor = forward - turn
+
+    # Normalize values
+    highest = max(100, abs(left_motor), abs(right_motor))
+
+    left_motor = left_motor / highest
+    right_motor = right_motor / highest
+
+    # Convert to motor power
+    M1_power = int(-right_motor * MAX_POWER)
+    M2_power = int(left_motor * MAX_POWER)
+
+    # Drive using motor_drive
+    # M1 port is reversed
+    # M2 port is normal
+
+    if abs(rx) < DEADZONE and abs(ry) < DEADZONE:
+        cyberpi.mbot2.motor_drive(0, 0)
+    else:
+        cyberpi.mbot2.motor_drive(M1_power, M2_power)
+
+    # -------------------------
+    # SERVO S2 CONTROL
+    # -------------------------
+
+    if gamepad.is_key_pressed('N1'):
+        angle_s2 = min(180, angle_s2 + 5)
+        cyberpi.mbot2.servo_set(angle_s2, "S2")
+
+    elif gamepad.is_key_pressed('N4'):
+        angle_s2 = max(80, angle_s2 - 5)
+        cyberpi.mbot2.servo_set(angle_s2, "S2")
+
+    # -------------------------
+    # SERVO S3 CONTROL
+    # -------------------------
+
+    if gamepad.is_key_pressed('N2'):
+        angle_s3 = min(180, angle_s3 + 5)
+        cyberpi.mbot2.servo_set(angle_s3, "S3")
+
+    elif gamepad.is_key_pressed('N3'):
+        angle_s3 = max(0, angle_s3 - 5)
+        cyberpi.mbot2.servo_set(angle_s3, "S3")
+
+time.sleep(0.03)
+
+# ===== Drive (right joystick) =====
+MAX_POWER = 100
+DEADZONE = 15
+
+# ===== Gripper (buttons 1-4) =====
+ARM_UP     = 30    # S1 top angle
+ARM_DOWN   = 120   # S1 bottom angle
+GRIP_OPEN  = 40    # gripper open angle
+GRIP_CLOSE = 110   # gripper close angle
+ARM_STEP   = 2
+GRIP_STEP  = 3
+
+arm  = ARM_UP
+grip = GRIP_OPEN
+
+def set_grip(angle):
+    mbot2.servo_set(angle, "S4")        # Left microservo
+    mbot2.servo_set(180 - angle, "S2")  # Right microservo (mirrored)
+
+mbot2.servo_set(arm, "S1")
+set_grip(grip)
+
+cyberpi.console.println("Robot Ready!")
+
+while True:
+    # ---------- Drive: right joystick ----------
+    rx = gamepad.get_joystick('Rx')
+    ry = gamepad.get_joystick('Ry')
+
+    forward = ry
+    turn = rx
+
+    left_motor = forward + turn
+    right_motor = forward - turn
+
+    highest = max(100, abs(left_motor), abs(right_motor))
+
+    left_motor = left_motor / highest
+    right_motor = right_motor / highest
+
+    M1_power = int(-right_motor * MAX_POWER)
+    M2_power = int(left_motor * MAX_POWER)
+
+    if abs(rx) < DEADZONE and abs(ry) < DEADZONE:
+        cyberpi.mbot2.motor_drive(0, 0)
+    else:
+        cyberpi.mbot2.motor_drive(M1_power, M2_power)
+
+    # ---------- Gripper: 1 = open, 4 = close ----------
+    if gamepad.is_key_pressed("N4"):
+        grip = min(grip + GRIP_STEP, GRIP_CLOSE)
+        set_grip(grip)
+    elif gamepad.is_key_pressed("N1"):
+        grip = max(grip - GRIP_STEP, GRIP_OPEN)
+        set_grip(grip)
+
+    # ---------- Arm: 2 = up, 3 = down ----------
+    if gamepad.is_key_pressed("N2"):
+        arm = max(arm - ARM_STEP, ARM_UP)
+        mbot2.servo_set(arm, "S1")
+    elif gamepad.is_key_pressed("N3"):
+        arm = min(arm + ARM_STEP, ARM_DOWN)
+        mbot2.servo_set(arm, "S1")
+
+    time.sleep(0.02)
